@@ -12,6 +12,7 @@ import pandas as pd
 import json
 import psycopg2.extras
 import requests
+import google.generativeai as genai
 
 config = dotenv_values('.env')
 
@@ -258,21 +259,20 @@ async def get_compliance_records(supplier_id: int):
 
 @app.get("/getaiinsights")
 async def get_ai_insights():
-    API_KEY = "YOUR_GEMINI_API_KEY"
-    ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-    context = [
-        {"role": "system", "content": "Your job is to analyze supplier data and provide insights. You can use the data provided to you to generate insights. You will be given a JSON object with supplier data. Your response should be text that provides insights based on the data. Return"},
-    ]
-    json_data = {"foo": "bar", "baz": 123}
+    genai.configure(api_key="AIzaSyDzDA1qOtw5f1Exnj9fEGyADEwwmOfVZP0")
+    ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyDzDA1qOtw5f1Exnj9fEGyADEwwmOfVZP0"
+    db_cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    db_cursor.execute("SELECT * FROM compliance_records")
+    records = db_cursor.fetchall()
+    db_cursor.close()
+    for record in records:
+        if isinstance(record.get("date_recorded"), date):
+            record["date_recorded"] = record["date_recorded"].isoformat()
+    context = "You are a compliance insights assistant. Analyze the following compliance records and provide insights. You can change contract terms to improve compliance."
+    user_data = json.dumps(records, indent=2)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    response = model.generate_content([
+        {"role": "user", "parts": [f"{context}\nCompliance Records:\n{user_data}"]}
+    ])
 
-    payload = {
-        "contents": context + [
-            {"role": "user", "content": json.dumps(json_data)}
-        ]
-    }
-    response = requests.post(ENDPOINT, headers=headers, json=payload)
-    return response
+    return {"insights": response.text}
