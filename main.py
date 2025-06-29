@@ -209,7 +209,7 @@ async def add_supplier(supplier: dict):
             supplier['name'],
             supplier['country'],
             supplier['complianceScore'],
-            json.dumps(contract_terms_raw),
+            json.dumps({'raw': str(contract_terms_raw)}),
             supplier.get('lastAuditDate')
         ))
         supplier_id = db_cursor.fetchone()[0]
@@ -274,5 +274,4 @@ async def get_ai_insights():
     response = model.generate_content([
         {"role": "user", "parts": [f"{context}\nCompliance Records:\n{user_data}"]}
     ])
-
     return {"insights": response.text}
